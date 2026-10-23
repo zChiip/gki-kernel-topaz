@@ -7,14 +7,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Maximize Build Space
-        uses: easimon/maximize-build-space@v10
-        with:
-          root-reserve-mb: 8192
-          swap-size-mb: 4096
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo apt-get clean
+          df -h
 
       - name: Setup Build Environment & Dependencies
         run: |
@@ -40,7 +40,6 @@ jobs:
         run: |
           cd gki_kernel/common
           
-          # Adicionamos as flags diretamente no ficheiro de fragmentos ou usamos o defconfig de forma segura
           CONFIG_FILE="arch/arm64/configs/gki_defconfig"
           
           echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' >> $CONFIG_FILE
@@ -66,7 +65,6 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           
-          # Força a atualização do defconfig para evitar o erro de validação
           export SKIP_MRPROPER=1
           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 
