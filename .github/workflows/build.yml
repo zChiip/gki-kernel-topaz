@@ -1,1 +1,79 @@
+name: Build Optimized GKI 5.15 KernelSU
 
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Maximize Build Space
+        uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 8192
+          swap-size-mb: 4096
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+
+      - name: Setup Build Environment & Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git ccache bison flex libssl-dev libelf-dev bc python3 clang lld llvm
+
+      - name: Sync AOSP Common Kernel 5.15 (Base Android 13)
+        run: |
+          mkdir gki_kernel && cd gki_kernel
+          repo init -u https://android.googlesource.com/kernel/manifest -b common-android13-5.15 --depth=1
+          repo sync -j$(nproc) --no-tags --no-clone-bundle
+
+      - name: Inject KernelSU
+        run: |
+          cd gki_kernel/common
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+
+      - name: Apply Custom Branding & Performance Tuning
+        run: |
+          cd gki_kernel/common
+          
+          # --- Nome Personalizado do Kernel ---
+          echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' >> arch/arm64/configs/gki_defconfig
+
+          # --- Otimizações de CPU e Governadores ---
+          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> arch/arm64/configs/gki_defconfig
+          
+          # --- Memória RAM & Fluidez (ZRAM) ---
+          echo "CONFIG_ZRAM=y" >> arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ZSMALLOC=y" >> arch/arm64/configs/gki_defconfig
+          
+          # --- Redução de Ping e Latência de Rede (TCP BBR) ---
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_BBR=y" >> arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEFAULT_BBR=y" >> arch/arm64/configs/gki_defconfig
+
+          # --- Compilação ThinLTO ---
+          echo "CONFIG_THINLTO=y" >> arch/arm64/configs/gki_defconfig
+          echo "CONFIG_LTO_CLANG_THIN=y" >> arch/arm64/configs/gki_defconfig
+
+      - name: Compile Optimized GKI Kernel
+        run: |
+          cd gki_kernel
+          export CC=clang
+          export LD=ld.lld
+          export AR=llvm-ar
+          export NM=llvm-nm
+          export OBJCOPY=llvm-objcopy
+          export OBJDUMP=llvm-objdump
+          export STRIP=llvm-strip
+          
+          BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
+
+      - name: Upload Kernel Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GKI_5.15_zChip_KernelSU
+          path: |
+            gki_kernel/out/android13-5.15/dist/Image*
+            gki_kernel/out/android13-5.15/dist/*.dtb
