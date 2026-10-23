@@ -19,7 +19,12 @@ jobs:
       - name: Setup Build Environment & Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git ccache bison flex libssl-dev libelf-dev bc python3 clang lld llvm
+          sudo apt-get install -y git ccache bison flex libssl-dev libelf-dev bc python3 clang lld llvm curl
+          
+          # --- Instalação da ferramenta Repo da Google ---
+          sudo mkdir -p /usr/local/bin
+          sudo curl -s https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
+          sudo chmod +x /usr/local/bin/repo
 
       - name: Sync AOSP Common Kernel 5.15 (Base Android 13)
         run: |
