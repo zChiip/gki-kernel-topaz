@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-gki-5.15-lto-${{ github.run_id }}
+          key: ccache-gki-5.15-lto-jobs-${{ github.run_id }}
           restore-keys: |
             ccache-gki-5.15-lto-
             ccache-gki-5.15-
@@ -69,13 +69,12 @@ jobs:
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
           
-          # Mantemos o ThinLTO ativado estritamente
           echo "CONFIG_THINLTO=y" >> $FRAG
           echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel (LTO Enabled + Ccache Active)
+      - name: Compile Optimized GKI Kernel (LTO + ThinLTO Jobs Limit)
         run: |
           export CCACHE_DIR="/home/runner/.ccache"
           export CCACHE_MAXSIZE="10G"
@@ -84,7 +83,9 @@ jobs:
           cd gki_kernel
           export CC="ccache clang"
           export CXX="ccache clang++"
-          export LD=ld.lld
+          
+          # Limitamos os jobs do ThinLTO diretamente no LLD para evitar travamento no linking
+          export LD="ld.lld --thinlto-jobs=4"
           export AR=llvm-ar
           export NM=llvm-nm
           export OBJCOPY=llvm-objcopy
