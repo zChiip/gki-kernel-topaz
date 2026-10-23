@@ -54,6 +54,10 @@ jobs:
           echo "CONFIG_THINLTO=y" >> $CONFIG_FILE
           echo "CONFIG_LTO_CLANG_THIN=y" >> $CONFIG_FILE
 
+          # Atualiza e reorganiza o defconfig para passar na validação da Google
+          make ARCH=arm64 gki_defconfig savedefconfig
+          cp defconfig arch/arm64/configs/gki_defconfig
+
       - name: Compile Optimized GKI Kernel
         run: |
           cd gki_kernel
@@ -65,7 +69,6 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           
-          export SKIP_MRPROPER=1
           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 
       - name: Upload Kernel Artifacts
