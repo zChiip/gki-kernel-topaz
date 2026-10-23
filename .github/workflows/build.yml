@@ -25,6 +25,14 @@ jobs:
           sudo curl -s https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
           sudo chmod +x /usr/local/bin/repo
 
+      - name: Setup Ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-gki-5.15-${{ github.run_id }}
+          restore-keys: |
+            ccache-gki-5.15-
+
       - name: Sync AOSP Common Kernel 5.15 (Base Android 13)
         run: |
           mkdir gki_kernel && cd gki_kernel
@@ -36,7 +44,7 @@ jobs:
           cd gki_kernel/common
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-      - name: Apply Custom Options via Fragment
+      - name: Apply Custom Options via Fragment (LTO Enabled)
         run: |
           cd gki_kernel/common
           
@@ -51,16 +59,18 @@ jobs:
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> $FRAG
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
-          # Desativamos o LTO para garantir que a compilação termina rapidamente sem timeout
-          echo "# CONFIG_THINLTO is not set" >> $FRAG
-          echo "# CONFIG_LTO_CLANG_THIN is not set" >> $FRAG
+          
+          # Mantemos o ThinLTO ativado para máxima otimização
+          echo "CONFIG_THINLTO=y" >> $FRAG
+          echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel
+      - name: Compile Optimized GKI Kernel (With Ccache)
         run: |
           cd gki_kernel
-          export CC=clang
+          export CC="ccache clang"
+          export CXX="ccache clang++"
           export LD=ld.lld
           export AR=llvm-ar
           export NM=llvm-nm
@@ -68,7 +78,12 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           
+          ccache -M 5G
+          ccache -s
+          
           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
+          
+          ccache -s
 
       - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
