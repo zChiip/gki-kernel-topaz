@@ -37,9 +37,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-gki-5.15-lto-jobs-${{ github.run_id }}
+          key: ccache-gki-5.15-thinlto-fixed-${{ github.run_id }}
           restore-keys: |
-            ccache-gki-5.15-lto-
+            ccache-gki-5.15-thinlto-
             ccache-gki-5.15-
 
       - name: Sync AOSP Common Kernel 5.15 (Base Android 13)
@@ -53,7 +53,7 @@ jobs:
           cd gki_kernel/common
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-      - name: Apply Custom Options via Fragment (LTO Enabled)
+      - name: Apply Custom Options via Fragment (ThinLTO Enabled)
         run: |
           cd gki_kernel/common
           
@@ -69,12 +69,14 @@ jobs:
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
           
+          # ThinLTO estritamente ativado
           echo "CONFIG_THINLTO=y" >> $FRAG
           echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
+          echo "# CONFIG_LTO_CLANG_FULL is not set" >> $FRAG
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel (LTO + ThinLTO Jobs Limit)
+      - name: Compile Optimized GKI Kernel (ThinLTO + Safe Linker Jobs)
         run: |
           export CCACHE_DIR="/home/runner/.ccache"
           export CCACHE_MAXSIZE="10G"
@@ -84,8 +86,8 @@ jobs:
           export CC="ccache clang"
           export CXX="ccache clang++"
           
-          # Limitamos os jobs do ThinLTO diretamente no LLD para evitar travamento no linking
-          export LD="ld.lld --thinlto-jobs=4"
+          # A correção definitiva: limitamos o ThinLTO a 1 job no linker para evitar o travamento por deadlock nos cores do runner
+          export LD="ld.lld --thinlto-jobs=1"
           export AR=llvm-ar
           export NM=llvm-nm
           export OBJCOPY=llvm-objcopy
@@ -101,7 +103,7 @@ jobs:
       - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GKI_5.15_zChip_KernelSU_LTO
+          name: GKI_5.15_zChip_KernelSU_ThinLTO
           path: |
             gki_kernel/out/android13-5.15/dist/Image*
             gki_kernel/out/android13-5.15/dist/*.dtb
