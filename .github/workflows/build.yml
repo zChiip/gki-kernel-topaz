@@ -18,7 +18,6 @@ jobs:
           sudo swapoff /swapfile || true
           sudo rm -f /swapfile
           
-          # Aumentamos o Swap para 12GB para dar margem extrema ao LTO
           sudo dd if=/dev/zero of=/swapfile bs=1M count=12288 status=progress
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
@@ -70,14 +69,18 @@ jobs:
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
           
-          # Mantemos o ThinLTO ativado
+          # Mantemos o ThinLTO ativado estritamente
           echo "CONFIG_THINLTO=y" >> $FRAG
           echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel (LTO Enabled + Controlled Jobs)
+      - name: Compile Optimized GKI Kernel (LTO Enabled + Ccache Active)
         run: |
+          export CCACHE_DIR="/home/runner/.ccache"
+          export CCACHE_MAXSIZE="10G"
+          export CCACHE_COMPRESS=1
+          
           cd gki_kernel
           export CC="ccache clang"
           export CXX="ccache clang++"
@@ -88,12 +91,7 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           
-          ccache -M 10G
           ccache -s
-          
-          # Limitamos o paralelismo a 4 threads (-j4) na fase de linking/LTO 
-          # para evitar que o OOM Killer do Linux feche o processo por falta de RAM súbita
-          export MAKEFLAGS="-j4"
           
           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
           
