@@ -40,7 +40,6 @@ jobs:
         run: |
           cd gki_kernel/common
           
-          # Cria um ficheiro de fragmento limpo (método oficial GKI)
           FRAG="arch/arm64/configs/zchip_optimize.fragment"
           
           echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' > $FRAG
@@ -50,15 +49,13 @@ jobs:
           echo "CONFIG_ZSMALLOC=y" >> $FRAG
           echo "CONFIG_NET_SCH_FQ_CODEL=y" >> $FRAG
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> $FRAG
-          echo "CONFIG_TCP_CONG_BBR=y" >> $CONFIG_ग्रेड
+          echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
-          echo "CONFIG_THINLTO=y" >> $FRAG
-          echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
+          # Desativamos o LTO para garantir que a compilação termina rapidamente sem timeout
+          echo "# CONFIG_THINLTO is not set" >> $FRAG
+          echo "# CONFIG_LTO_CLANG_THIN is not set" >> $FRAG
 
-          # Adiciona o fragmento ao build.config para ser processado automaticamente
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
-          # Insere o fragmento no final da build config principal do kernel comum
-          echo 'KERNEL_CFLAGS="${KERNEL_CFLAGS} -O3"' >> build.config.common
 
       - name: Compile Optimized GKI Kernel
         run: |
