@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-gki-5.15-thinlto-fixed-${{ github.run_id }}
+          key: ccache-gki-5.15-thinlto-definitive-${{ github.run_id }}
           restore-keys: |
             ccache-gki-5.15-thinlto-
             ccache-gki-5.15-
@@ -76,7 +76,7 @@ jobs:
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel (ThinLTO + Safe Linker Jobs)
+      - name: Compile Optimized GKI Kernel (ThinLTO Definitive Fix)
         run: |
           export CCACHE_DIR="/home/runner/.ccache"
           export CCACHE_MAXSIZE="10G"
@@ -85,14 +85,16 @@ jobs:
           cd gki_kernel
           export CC="ccache clang"
           export CXX="ccache clang++"
-          
-          # A correção definitiva: limitamos o ThinLTO a 1 job no linker para evitar o travamento por deadlock nos cores do runner
-          export LD="ld.lld --thinlto-jobs=1"
+          export LD=ld.lld
           export AR=llvm-ar
           export NM=llvm-nm
           export OBJCOPY=llvm-objcopy
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
+          
+          # Correção definitiva: Variável nativa do AOSP para limitar os jobs do ThinLTO e flags do linker
+          export THINLTO_JOBS=1
+          export KBUILD_LDFLAGS="--thinlto-jobs=1"
           
           ccache -s
           
@@ -103,7 +105,7 @@ jobs:
       - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GKI_5.15_zChip_KernelSU_ThinLTO
+          name: GKI_5.15_zChip_KernelSU_ThinLTO_Fixed
           path: |
             gki_kernel/out/android13-5.15/dist/Image*
             gki_kernel/out/android13-5.15/dist/*.dtb
