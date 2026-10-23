@@ -15,12 +15,11 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo apt-get clean
           
-          # Desativa e limpa qualquer swap anterior para evitar conflitos
           sudo swapoff /swapfile || true
           sudo rm -f /swapfile
           
-          # Cria um Swap de 8GB de forma segura com dd para suportar o LTO
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=8192 status=progress
+          # Aumentamos o Swap para 12GB para dar margem extrema ao LTO
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=12288 status=progress
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
@@ -39,8 +38,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-gki-5.15-${{ github.run_id }}
+          key: ccache-gki-5.15-lto-${{ github.run_id }}
           restore-keys: |
+            ccache-gki-5.15-lto-
             ccache-gki-5.15-
 
       - name: Sync AOSP Common Kernel 5.15 (Base Android 13)
@@ -70,13 +70,13 @@ jobs:
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
           
-          # ThinLTO mantido ativado para máxima otimização
+          # Mantemos o ThinLTO ativado
           echo "CONFIG_THINLTO=y" >> $FRAG
           echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel (With Ccache & Swap)
+      - name: Compile Optimized GKI Kernel (LTO Enabled + Controlled Jobs)
         run: |
           cd gki_kernel
           export CC="ccache clang"
@@ -88,8 +88,12 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           
-          ccache -M 5G
+          ccache -M 10G
           ccache -s
+          
+          # Limitamos o paralelismo a 4 threads (-j4) na fase de linking/LTO 
+          # para evitar que o OOM Killer do Linux feche o processo por falta de RAM súbita
+          export MAKEFLAGS="-j4"
           
           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
           
@@ -98,7 +102,7 @@ jobs:
       - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GKI_5.15_zChip_KernelSU
+          name: GKI_5.15_zChip_KernelSU_LTO
           path: |
             gki_kernel/out/android13-5.15/dist/Image*
             gki_kernel/out/android13-5.15/dist/*.dtb
