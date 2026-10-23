@@ -21,7 +21,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git ccache bison flex libssl-dev libelf-dev bc python3 clang lld llvm curl
           
-          # --- Instalação da ferramenta Repo da Google ---
           sudo mkdir -p /usr/local/bin
           sudo curl -s https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
           sudo chmod +x /usr/local/bin/repo
@@ -41,26 +40,20 @@ jobs:
         run: |
           cd gki_kernel/common
           
-          # --- Nome Personalizado do Kernel ---
-          echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' >> arch/arm64/configs/gki_defconfig
-
-          # --- Otimizações de CPU e Governadores ---
-          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> arch/arm64/configs/gki_defconfig
+          # Adicionamos as flags diretamente no ficheiro de fragmentos ou usamos o defconfig de forma segura
+          CONFIG_FILE="arch/arm64/configs/gki_defconfig"
           
-          # --- Memória RAM & Fluidez (ZRAM) ---
-          echo "CONFIG_ZRAM=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ZSMALLOC=y" >> arch/arm64/configs/gki_defconfig
-          
-          # --- Redução de Ping e Latência de Rede (TCP BBR) ---
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BBR=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_BBR=y" >> arch/arm64/configs/gki_defconfig
-
-          # --- Compilação ThinLTO ---
-          echo "CONFIG_THINLTO=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_LTO_CLANG_THIN=y" >> arch/arm64/configs/gki_defconfig
+          echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' >> $CONFIG_FILE
+          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> $CONFIG_FILE
+          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> $CONFIG_FILE
+          echo "CONFIG_ZRAM=y" >> $CONFIG_FILE
+          echo "CONFIG_ZSMALLOC=y" >> $CONFIG_FILE
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> $CONFIG_FILE
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> $CONFIG_FILE
+          echo "CONFIG_TCP_CONG_BBR=y" >> $CONFIG_FILE
+          echo "CONFIG_DEFAULT_BBR=y" >> $CONFIG_FILE
+          echo "CONFIG_THINLTO=y" >> $CONFIG_FILE
+          echo "CONFIG_LTO_CLANG_THIN=y" >> $CONFIG_FILE
 
       - name: Compile Optimized GKI Kernel
         run: |
@@ -73,6 +66,8 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           
+          # Força a atualização do defconfig para evitar o erro de validação
+          export SKIP_MRPROPER=1
           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 
       - name: Upload Kernel Artifacts
