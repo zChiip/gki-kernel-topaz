@@ -7,14 +7,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Free Disk Space
+      - name: Free Disk Space & Setup Swap
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo apt-get clean
-          df -h
+          
+          # Cria um Swap de 8GB para evitar que o LTO rebente por falta de RAM
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
 
       - name: Setup Build Environment & Dependencies
         run: |
@@ -60,13 +66,12 @@ jobs:
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
           
-          # Mantemos o ThinLTO ativado para máxima otimização
           echo "CONFIG_THINLTO=y" >> $FRAG
           echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel (With Ccache)
+      - name: Compile Optimized GKI Kernel (With Ccache & Swap)
         run: |
           cd gki_kernel
           export CC="ccache clang"
