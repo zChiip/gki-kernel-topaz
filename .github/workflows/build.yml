@@ -36,27 +36,29 @@ jobs:
           cd gki_kernel/common
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-      - name: Apply Custom Branding & Performance Tuning
+      - name: Apply Custom Options via Fragment
         run: |
           cd gki_kernel/common
           
-          CONFIG_FILE="arch/arm64/configs/gki_defconfig"
+          # Cria um ficheiro de fragmento limpo (método oficial GKI)
+          FRAG="arch/arm64/configs/zchip_optimize.fragment"
           
-          echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' >> $CONFIG_FILE
-          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> $CONFIG_FILE
-          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> $CONFIG_FILE
-          echo "CONFIG_ZRAM=y" >> $CONFIG_FILE
-          echo "CONFIG_ZSMALLOC=y" >> $CONFIG_FILE
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> $CONFIG_FILE
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> $CONFIG_FILE
-          echo "CONFIG_TCP_CONG_BBR=y" >> $CONFIG_FILE
-          echo "CONFIG_DEFAULT_BBR=y" >> $CONFIG_FILE
-          echo "CONFIG_THINLTO=y" >> $CONFIG_FILE
-          echo "CONFIG_LTO_CLANG_THIN=y" >> $CONFIG_FILE
+          echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' > $FRAG
+          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> $FRAG
+          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> $FRAG
+          echo "CONFIG_ZRAM=y" >> $FRAG
+          echo "CONFIG_ZSMALLOC=y" >> $FRAG
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> $FRAG
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> $FRAG
+          echo "CONFIG_TCP_CONG_BBR=y" >> $CONFIG_ग्रेड
+          echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
+          echo "CONFIG_THINLTO=y" >> $FRAG
+          echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
 
-          # Atualiza e reorganiza o defconfig para passar na validação da Google
-          make ARCH=arm64 gki_defconfig savedefconfig
-          cp defconfig arch/arm64/configs/gki_defconfig
+          # Adiciona o fragmento ao build.config para ser processado automaticamente
+          echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
+          # Insere o fragmento no final da build config principal do kernel comum
+          echo 'KERNEL_CFLAGS="${KERNEL_CFLAGS} -O3"' >> build.config.common
 
       - name: Compile Optimized GKI Kernel
         run: |
