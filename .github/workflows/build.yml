@@ -15,8 +15,12 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo apt-get clean
           
-          # Cria um Swap de 8GB para evitar que o LTO rebente por falta de RAM
-          sudo fallocate -l 8G /swapfile
+          # Desativa e limpa qualquer swap anterior para evitar conflitos
+          sudo swapoff /swapfile || true
+          sudo rm -f /swapfile
+          
+          # Cria um Swap de 8GB de forma segura com dd para suportar o LTO
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=8192 status=progress
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
@@ -66,6 +70,7 @@ jobs:
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
           
+          # ThinLTO mantido ativado para máxima otimização
           echo "CONFIG_THINLTO=y" >> $FRAG
           echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
 
