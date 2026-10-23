@@ -33,15 +33,6 @@ jobs:
           sudo curl -s https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
           sudo chmod +x /usr/local/bin/repo
 
-      - name: Setup Ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ccache-gki-5.15-thinlto-definitive-${{ github.run_id }}
-          restore-keys: |
-            ccache-gki-5.15-thinlto-
-            ccache-gki-5.15-
-
       - name: Sync AOSP Common Kernel 5.15 (Base Android 13)
         run: |
           mkdir gki_kernel && cd gki_kernel
@@ -53,7 +44,7 @@ jobs:
           cd gki_kernel/common
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-      - name: Apply Custom Options via Fragment (ThinLTO Enabled)
+      - name: Apply Custom Options via Fragment (ThinLTO Fixed)
         run: |
           cd gki_kernel/common
           
@@ -69,22 +60,17 @@ jobs:
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
           
-          # ThinLTO estritamente ativado
+          # ThinLTO mantido e forçado corretamente
           echo "CONFIG_THINLTO=y" >> $FRAG
           echo "CONFIG_LTO_CLANG_THIN=y" >> $FRAG
-          echo "# CONFIG_LTO_CLANG_FULL is not set" >> $FRAG
 
           echo "GKI_DISABLE_DEBUG_FS=n" >> build.config.gki.aarch64
 
-      - name: Compile Optimized GKI Kernel (ThinLTO Definitive Fix)
+      - name: Compile Optimized GKI Kernel (Definitive LTO Linker Fix)
         run: |
-          export CCACHE_DIR="/home/runner/.ccache"
-          export CCACHE_MAXSIZE="10G"
-          export CCACHE_COMPRESS=1
-          
           cd gki_kernel
-          export CC="ccache clang"
-          export CXX="ccache clang++"
+          export CC=clang
+          export CXX=clang++
           export LD=ld.lld
           export AR=llvm-ar
           export NM=llvm-nm
@@ -92,20 +78,20 @@ jobs:
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
           
-          # Correção definitiva: Variável nativa do AOSP para limitar os jobs do ThinLTO e flags do linker
-          export THINLTO_JOBS=1
-          export KBUILD_LDFLAGS="--thinlto-jobs=1"
+          # Desativa o ccache nesta fase crítica para evitar conflitos de cache corrompido no vmlinux.o
+          export DISABLE_CCACHE=1
           
-          ccache -s
+          # Força o LLVM LTO a executar estritamente de forma serializada no linker e passa a diretiva para evitar o deadlock
+          export LDFLAGS="-Wl,--thinlto-jobs=1"
+          export KBUILD_LDFLAGS="-Wl,--thinlto-jobs=1"
+          export THINLTO_JOBS=1
           
           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
-          
-          ccache -s
 
       - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GKI_5.15_zChip_KernelSU_ThinLTO_Fixed
+          name: GKI_5.15_zChip_KernelSU_ThinLTO_Final
           path: |
             gki_kernel/out/android13-5.15/dist/Image*
             gki_kernel/out/android13-5.15/dist/*.dtb
