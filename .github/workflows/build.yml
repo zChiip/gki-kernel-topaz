@@ -75,7 +75,7 @@ jobs:
           FRAG="arch/arm64/configs/zchip_optimize.fragment"
           
           # Força o nome personalizado e desativa o sufixo automático
-          echo 'CONFIG_LOCALVERSION="-zChip-Edition-GKI"' > $FRAG
+          echo 'CONFIG_LOCALVERSION="-Zeus-GKI-Kernel"' > $FRAG
           echo 'CONFIG_LOCALVERSION_AUTO=n' >> $FRAG
           
           # Desempenho e I/O / Sync Tweaks
@@ -124,7 +124,7 @@ jobs:
           
           # Força o setlocalversion a retornar estritamente a tua tag personalizada
           echo '#!/bin/sh' > scripts/setlocalversion
-          echo 'echo "-zChip-Edition-GKI"' >> scripts/setlocalversion
+          echo 'echo "-Zeus-GKI-Kernel"' >> scripts/setlocalversion
           chmod +x scripts/setlocalversion
           
           cd ..
@@ -152,7 +152,7 @@ jobs:
       - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GKI_5.15_zChip_KernelSU_SUSFS_WireGuard
+          name: Zeus-GKI-Kernel_KernelSU_SUSFS_WireGuard
           path: |
             gki_kernel/out/android13-5.15/dist/Image*
             gki_kernel/out/android13-5.15/dist/*.dtb
