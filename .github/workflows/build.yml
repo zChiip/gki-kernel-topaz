@@ -59,7 +59,7 @@ jobs:
           
           FRAG="arch/arm64/configs/zchip_optimize.fragment"
           
-          echo 'CONFIG_LOCALVERSION="-zChip-Kernel-v1"' > $FRAG
+          echo 'CONFIG_LOCALVERSION="-zChip-Edition-GKI"' > $FRAG
           echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> $FRAG
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> $FRAG
           echo "CONFIG_ZRAM=y" >> $FRAG
