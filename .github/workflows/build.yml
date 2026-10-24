@@ -1,4 +1,4 @@
-name: Build Optimized GKI 5.15 KernelSU
+name: Build Optimized GKI 5.15 KernelSU + SUSFS + Sync + WireGuard
 
 on:
   workflow_dispatch:
@@ -37,9 +37,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-gki-5.15-thinlto-ultimate-${{ github.run_id }}
+          key: ccache-gki-5.15-susfs-wireguard-${{ github.run_id }}
           restore-keys: |
-            ccache-gki-5.15-thinlto-
+            ccache-gki-5.15-susfs-
             ccache-gki-5.15-
 
       - name: Sync AOSP Common Kernel 5.15 (Base Android 13)
@@ -48,21 +48,37 @@ jobs:
           repo init -u https://android.googlesource.com/kernel/manifest -b common-android13-5.15 --depth=1
           repo sync -j$(nproc) --no-tags --no-clone-bundle
 
-      - name: Inject KernelSU
+      - name: Inject KernelSU and SUSFS
         run: |
           cd gki_kernel/common
+          
+          # 1. Injeta o KernelSU oficial
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+          
+          # 2. Clona o repositório do SUSFS (5.15)
+          git clone https://gitlab.com/simonsmh/kernel-SUFS.git -b 5.15 susfs_repo || true
+          
+          # 3. Aplica os patches do SUSFS
+          if [ -d "susfs_repo" ]; then
+            cp susfs_repo/kernel_patches/50_add_susfs_in_gki.patch . || true
+            patch -p1 < 50_add_susfs_in_gki.patch || true
+            
+            cp -r susfs_repo/fs/susfs fs/ || true
+            echo "CONFIG_KSU_SUSFS=y" >> drivers/kernelsu/Kconfig || true
+            echo "obj-\$(CONFIG_KSU_SUSFS) += susfs/" >> drivers/kernelsu/Makefile || true
+          fi
 
-      - name: Apply Custom Options via Fragment (ThinLTO Active)
+      - name: Apply Custom Options via Fragment (ThinLTO Active + SUSFS, Sync & WireGuard)
         run: |
           cd gki_kernel/common
           
           FRAG="arch/arm64/configs/zchip_optimize.fragment"
           
-          # Força o nome personalizado e desativa o sufixo automático -dirty / git-hash
+          # Força o nome personalizado e desativa o sufixo automático
           echo 'CONFIG_LOCALVERSION="-zChip-Edition-GKI"' > $FRAG
           echo 'CONFIG_LOCALVERSION_AUTO=n' >> $FRAG
           
+          # Desempenho e I/O / Sync Tweaks
           echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> $FRAG
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> $FRAG
           echo "CONFIG_ZRAM=y" >> $FRAG
@@ -71,6 +87,25 @@ jobs:
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> $FRAG
           echo "CONFIG_TCP_CONG_BBR=y" >> $FRAG
           echo "CONFIG_DEFAULT_BBR=y" >> $FRAG
+          
+          # Otimizações de Sync / Sincronização de Escrita I/O
+          echo "CONFIG_FS_SYNC=y" >> $FRAG
+          echo "CONFIG_SYNC_FILE=y" >> $FRAG
+          echo "CONFIG_PROFILING=y" >> $FRAG
+          
+          # Otimizações de Rede e WireGuard Nativo
+          echo "CONFIG_WIREGUARD=y" >> $FRAG
+          echo "CONFIG_NET_CLS_ACT=y" >> $FRAG
+          echo "CONFIG_NET_SCH_INGRESS=y" >> $FRAG
+          
+          # Opções do SUSFS
+          echo "CONFIG_KSU_SUSFS=y" >> $FRAG
+          echo "CONFIG_KSU_SUSFS_HAS_ALLOWED_PATH_MODIFY=y" >> $FRAG
+          echo "CONFIG_KSU_SUSFS_AUTO_MOUNT_BY_KSU=y" >> $FRAG
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> $FRAG
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> $FRAG
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> $FRAG
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> $FRAG
           
           # ThinLTO estritamente mantido
           echo "CONFIG_THINLTO=y" >> $FRAG
@@ -85,10 +120,14 @@ jobs:
           export CCACHE_MAXSIZE="10G"
           export CCACHE_COMPRESS=1
           
-          # Variável de ambiente direta para garantir a sobreposição da string do kernel
-          export LOCALVERSION="-zChip-Edition-GKI"
+          cd gki_kernel/common
           
-          cd gki_kernel
+          # Remove e esvazia o script interno do AOSP que adiciona a branch e a hash do git
+          rm -f scripts/setlocalversion
+          touch scripts/setlocalversion
+          chmod +x scripts/setlocalversion
+          
+          cd ..
           export CC="ccache clang"
           export CXX="ccache clang++"
           export LD=ld.lld
@@ -99,7 +138,6 @@ jobs:
           export STRIP=llvm-strip
           
           # A SOLUÇÃO DEFINITIVA PARA O TRAVAMENTO NO VMLINUX.O:
-          # Força o linker lld a executar com 1 única thread e desativa o paralelismo de jobs do ThinLTO no LLVM
           export LDFLAGS="-Wl,--threads=1 --thinlto-jobs=1"
           export KBUILD_LDFLAGS="-Wl,--threads=1 --thinlto-jobs=1"
           export LLVM_PARALLEL_LINK_JOBS=1
@@ -114,7 +152,7 @@ jobs:
       - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GKI_5.15_zChip_KernelSU_ThinLTO
+          name: GKI_5.15_zChip_KernelSU_SUSFS_WireGuard
           path: |
             gki_kernel/out/android13-5.15/dist/Image*
             gki_kernel/out/android13-5.15/dist/*.dtb
