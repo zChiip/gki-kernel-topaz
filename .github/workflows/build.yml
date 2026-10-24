@@ -59,7 +59,10 @@ jobs:
           
           FRAG="arch/arm64/configs/zchip_optimize.fragment"
           
+          # Força o nome personalizado e desativa o sufixo automático -dirty / git-hash
           echo 'CONFIG_LOCALVERSION="-zChip-Edition-GKI"' > $FRAG
+          echo 'CONFIG_LOCALVERSION_AUTO=n' >> $FRAG
+          
           echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> $FRAG
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> $FRAG
           echo "CONFIG_ZRAM=y" >> $FRAG
@@ -81,6 +84,9 @@ jobs:
           export CCACHE_DIR="/home/runner/.ccache"
           export CCACHE_MAXSIZE="10G"
           export CCACHE_COMPRESS=1
+          
+          # Variável de ambiente direta para garantir a sobreposição da string do kernel
+          export LOCALVERSION="-zChip-Edition-GKI"
           
           cd gki_kernel
           export CC="ccache clang"
