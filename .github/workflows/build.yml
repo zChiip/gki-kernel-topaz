@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-gki-5.15-susfs-wireguard-${{ github.run_id }}
+          key: ccache-gki-5.15-susfs-wireguard-v2-${{ github.run_id }}
           restore-keys: |
             ccache-gki-5.15-susfs-
             ccache-gki-5.15-
@@ -122,9 +122,9 @@ jobs:
           
           cd gki_kernel/common
           
-          # Remove e esvazia o script interno do AOSP que adiciona a branch e a hash do git
-          rm -f scripts/setlocalversion
-          touch scripts/setlocalversion
+          # Força o setlocalversion a retornar estritamente a tua tag personalizada
+          echo '#!/bin/sh' > scripts/setlocalversion
+          echo 'echo "-zChip-Edition-GKI"' >> scripts/setlocalversion
           chmod +x scripts/setlocalversion
           
           cd ..
